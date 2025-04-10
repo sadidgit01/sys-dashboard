@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>System Metrics Dashboard</title>
+    <!-- External CSS Link -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <h1><i class="fas fa-tachometer-alt"></i> System Metrics Dashboard</h1>
+    </header>
+
+    <div class="dashboard">
+        <div class="metric-row">
+            <div class="metric">
+                <h2><i class="fas fa-microchip"></i> CPU Usage</h2>
+                <div class="metric-value" id="cpu-value">0%</div>
+                <div class="chart-container">
+                    <canvas id="cpu-chart"></canvas>
+                </div>
+            </div>
+            <div class="metric">
+                <h2><i class="fas fa-memory"></i> Memory Usage</h2>
+                <div class="metric-value" id="memory-value">0%</div>
+                <div class="chart-container">
+                    <canvas id="memory-chart"></canvas>
+                </div>
+            </div>
+            <div class="metric">
+                <h2><i class="fas fa-hdd"></i> Disk Usage</h2>
+                <div class="metric-value" id="disk-value">0%</div>
+                <div class="chart-container">
+                    <canvas id="disk-chart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Initialize charts with gradient fills
+        function createGradient(ctx, color) {
+            const gradient = ctx.createLinearGradient(0, 0, 0, 250);
+            gradient.addColorStop(0, color + '0.4)');
+            gradient.addColorStop(1, color + '0)');
+            return gradient;
+        }
+
+        const cpuCtx = document.getElementById('cpu-chart').getContext('2d');
+        const memoryCtx = document.getElementById('memory-chart').getContext('2d');
+        const diskCtx = document.getElementById('disk-chart').getContext('2d');
+
+        const chartOptions = {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    max: 100,
+                    ticks: {
+                        callback: function(value) {
+                            return value + '%';
+                        }
+                    }
+                }
+            },
+            animation: {
+                duration: 0
+            },
+            elements: {
+                point: {
+                    radius: 0
+                }
+            }
+        };
+
+        const cpuChart = new Chart(cpuCtx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: 'CPU Usage',
+                    data: [],
+                    borderColor: 'rgba(255, 99, 132, 1)',
+                    backgroundColor: createGradient(cpuCtx, 'rgba(255, 99, 132,'),
+                    borderWidth: 2,
+                    fill: true
+                }]
+            },
+            options: chartOptions
+        });
+
+        const memoryChart = new Chart(memoryCtx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: 'Memory Usage',
+                    data: [],
+                    borderColor: 'rgba(54, 162, 235, 1)',
+                    backgroundColor: createGradient(memoryCtx, 'rgba(54, 162, 235,'),
+                    borderWidth: 2,
+                    fill: true
+                }]
+            },
+            options: chartOptions
+        });
+
+        const diskChart = new Chart(diskCtx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: 'Disk Usage',
+                    data: [],
+                    borderColor: 'rgba(75, 192, 192, 1)',
+                    backgroundColor: createGradient(diskCtx, 'rgba(75, 192, 192,'),
+                    borderWidth: 2,
+                    fill: true
+                }]
+            },
+            options: chartOptions
+        });
+
+        // Connect to SSE endpoint
+        const eventSource = new EventSource('/metrics');
+
+        eventSource.onmessage = function(event) {
+            const data = JSON.parse(event.data);
+
+            // Update current values
+            document.getElementById('cpu-value').textContent = 
+                data.cpu[data.cpu.length - 1] + '%';
+            document.getElementById('memory-value').textContent = 
+                data.memory[data.memory.length - 1] + '%';
+            document.getElementById('disk-value').textContent = 
+                data.disk[data.disk.length - 1] + '%';
+
+            // Update charts
+            cpuChart.data.labels = data.timestamps;
+            cpuChart.data.datasets[0].data = data.cpu;
+            cpuChart.update();
+
+            memoryChart.data.labels = data.timestamps;
+            memoryChart.data.datasets[0].data = data.memory;
+            memoryChart.update();
+
+            diskChart.data.labels = data.timestamps;
+            diskChart.data.datasets[0].data = data.disk;
+            diskChart.update();
+        };
+    </script>
+</body>
+</html>
